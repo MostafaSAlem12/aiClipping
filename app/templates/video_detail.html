@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Video {{ video.id }} · AI Video Engine</title>
+  <link rel="stylesheet" href="/static/style.css" />
+  {% if is_running or video.status not in ['uploaded', 'completed', 'failed'] %}
+  <meta http-equiv="refresh" content="5" />
+  {% endif %}
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <h1>{{ video.filename }}</h1>
+        <p><a href="/">← All videos</a></p>
+      </div>
+      <form action="/videos/{{ video.id }}/process" method="post">
+        <button type="submit" {% if is_running %}disabled{% endif %}>
+          {% if is_running %}Processing…{% else %}Run pipeline{% endif %}
+        </button>
+      </form>
+    </header>
+
+    {% if video.error_message %}
+      <div class="error">{{ video.error_message }}</div>
+    {% endif %}
+
+    <section class="panel">
+      <h2>Status</h2>
+      <div class="meta-grid">
+        <div class="meta-item">
+          <div class="label">Pipeline</div>
+          <div class="value"><span class="badge {{ video.status }}">{{ video.status }}</span></div>
+        </div>
+        <div class="meta-item">
+          <div class="label">Duration</div>
+          <div class="value">{% if video.duration %}{{ '%.1f'|format(video.duration) }}s{% else %}—{% endif %}</div>
+        </div>
+        <div class="meta-item">
+          <div class="label">Resolution</div>
+          <div class="value">
+            {% if video.width and video.height %}{{ video.width }}×{{ video.height }}{% else %}—{% endif %}
+          </div>
+        </div>
+        <div class="meta-item">
+          <div class="label">Transcript</div>
+          <div class="value">{% if transcript %}ready{% else %}pending{% endif %}</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Transcription</h2>
+      {% if transcript %}
+        <div class="transcript">{{ transcript.text }}</div>
+      {% else %}
+        <p class="muted">No transcript yet. Run the pipeline to transcribe.</p>
+      {% endif %}
+    </section>
+
+    <section class="panel">
+      <h2>Candidate clips</h2>
+      {% if candidates %}
+      <table>
+        <thead>
+          <tr>
+            <th>Score</th>
+            <th>Title</th>
+            <th>Timing</th>
+            <th>Hook</th>
+            <th>Reason</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for c in candidates %}
+          <tr>
+            <td class="score">{{ '%.1f'|format(c.score) }}</td>
+            <td>{{ c.title }}</td>
+            <td class="muted">{{ '%.1f'|format(c.start_time) }}s – {{ '%.1f'|format(c.end_time) }}s</td>
+            <td>{{ c.hook }}</td>
+            <td class="muted">{{ c.reason }}</td>
+            <td><span class="badge {{ c.status }}">{{ c.status }}</span></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+        <p class="muted">Candidates appear after LLM analysis.</p>
+      {% endif %}
+    </section>
+
+    <section class="panel">
+      <h2>Generated clips</h2>
+      {% if clips %}
+      <table>
+        <thead>
+          <tr>
+            <th>Title</th>
+            <th>Score</th>
+            <th>Duration</th>
+            <th>Status</th>
+            <th>Download</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for clip, candidate in clips %}
+          <tr>
+            <td>{{ candidate.title }}</td>
+            <td class="score">{{ '%.1f'|format(candidate.score) }}</td>
+            <td class="muted">
+              {% if clip.duration %}{{ '%.1f'|format(clip.duration) }}s{% else %}—{% endif %}
+            </td>
+            <td>
+              <span class="badge {{ clip.status }}">{{ clip.status }}</span>
+              {% if clip.error_message %}<div class="muted">{{ clip.error_message }}</div>{% endif %}
+            </td>
+            <td>
+              {% if clip.status == 'completed' %}
+                <a href="/api/clips/{{ clip.id }}/download">Download</a>
+              {% else %}
+                —
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+        <p class="muted">Finished vertical clips will show up here.</p>
+      {% endif %}
+    </section>
+  </div>
+</body>
+</html>
